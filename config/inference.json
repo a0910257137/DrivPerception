@@ -1,0 +1,36 @@
+{
+    "predictor": {
+        "visible_gpu": "-1",
+        "pb_path": "/aidata/anders/autosys/archives/try",
+        "top_k_n": 15,
+        "nms_iou_thres":  0.5,
+        "kp_thres": 0.45,  
+        "n_objs": 100,
+        "nc": 1, 
+        "num_seg_class": 2,
+        "gpu_fraction":0.5,
+        "resize_ratio": 0.5,
+        "is_plot": true,
+        "eval_method":"IoU",
+        "model_format":"keras",
+        "predictor_mode":"scrfd_tdmm",
+        "mode": "keras",
+        "img_input_size": [
+            384,
+            640
+        ],
+        "cat_path": "./config/ids.txt"
+    },
+    "metric":{
+        "metric_type":"keypoints",
+        "conditions": 
+            {
+                "transformer_method":"LandMarks",
+                "object_matcher_method":"PointDistance",
+                "calculator_method" : "PRFCalculator",
+                "reporter_method" :"EdgePRFReporter",
+                "matcher_threshold" :10000,
+                "reporter_threshold" :15
+            }
+    }
+}

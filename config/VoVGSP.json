@@ -1,0 +1,162 @@
+{
+    "batch_size": 8,
+    "epochs": 100,
+    "learn_rate": 0.001,
+    "model_path": "/aidata/anders/autosys/archives/sunplus",
+    "summary": {
+        "scalar_freq": 50,
+        "hist_freq": 150,
+        "img_freq": 250,
+        "log_dir": "/aidata/anders/autosys/archives/sunplus/logs/"
+    },
+    "data_reader": {
+        "max_obj_num": 15,
+        "resize_size": [
+            384, // height
+            640 // width
+        ],
+        "img_down_ratio": 1.0, //[height, width]
+        "coors_down_ratio": [
+            1.0,
+            1.0
+        ], //[height, width]
+        "shuffle": true,
+        "tasks": [{
+            "preprocess": "obj_det",
+            "read_img": true,
+            "num_lnmks": 70,
+            "category_path": "./config/ids.txt",
+            "train_folder": "/aidata/anders/autosys/tf_records/train",
+            "test_folder": "/aidata/anders/autosys/tf_records/test"
+        }],
+        "augments": {
+            "color_chains": [
+                "contrast",
+                "saturat",
+                "bright",
+                "hue"
+            ],
+            "tensorpack_chains": ["Flip"], //"CropTransform", "WarpAffineTransform","RandomPaste","JpegNoise","GaussianNoise","SaltPepperNoise", "RandomSquareCrop"
+            "album_chains": {
+                "cutout": {
+                    "max_holes": 15,
+                    "min_holes": 5,
+                    "max_height": 30,
+                    "max_width": 30,
+                    "min_height": 10,
+                    "min_width": 10,
+                    "fill_value": 0
+                }
+            },
+            "do_flip": true
+        }
+    },
+    "models": {
+        "model_name": "anchor_obj_det",
+        "frozen_backbone": false,
+        "multi_optimizer": false,
+        "optimizer": "adam",
+        "backbone": {
+            "module_name": "mobilenextnet",
+            "optimizer": "adam",
+            "num_vars": null,
+            "variables": null,
+            "lr": 1e-3,
+            // t, c, n, s
+            "block_cfg": [
+                [2,  96, 1, 2],
+                [6, 144, 1, 1],
+                [6, 192, 3, 2],
+                [6, 288, 3, 2],
+                [6, 384, 4, 1],
+                [6, 576, 4, 2],
+                [6, 960, 3, 1],
+                [6,1280, 1, 1]
+            ]
+        },
+        "neck": {
+            "module_name": "slim_neck",
+            "optimizer": "adam",
+            "num_vars": null,
+            "variables": null,
+            "start_level": 1,
+            "backbone_end_level": 4,
+            "num_outs": 3,
+            "l_out_channels":128,
+            "gs_out_channels": [128, 64, 64, 128],
+            "in_channels": [40, 72, 152, 288],
+            "lr": 1e-3
+        },
+        "head": {
+            "module_name": "slim_head",
+            "optimizer": "adam",
+            "num_vars": null,
+            "variables": null,
+            "lr": 1e-3,
+            "num_classes": 1,
+            "anchors":[
+                [3, 9, 5, 11, 4, 20], 
+                [7, 18, 6, 39, 12, 31], 
+                [19, 50, 38, 81, 68, 157]
+            ],
+            "in_channels":[128, 256, 512],
+            "strides":[8, 16, 32],
+            "det_block_cfg":[
+                [[102, 103, 104], 1, "IDetect", [1, [
+                                                [3, 9, 5, 11, 4, 20], 
+                                                [7, 18, 6, 39, 12, 31], 
+                                                [19, 50, 38, 81, 68, 157]]]]   // Detect(P3, P4, P5)
+            ],
+            "da_block_cfg":[
+                [-1, 1, "Conv", [256, 3, 1, "bn", "relu"]], // 0
+                [-1, 1, "Upsample", [2, "nearest"]], // 1
+                [-1, 1, "BottleneckCSP", [256, 128, 1, "relu", "relu"]], // 1
+                [-1, 1, "Conv", [64, 3, 1, "bn", "relu"]], // 2
+                [-1, 1, "Upsample", [2, "nearest"]], // 3
+                [-1, 1, "Conv", [32, 3, 1, "bn", "relu"]], // 4
+                [-1, 1, "Upsample", [2, "nearest"]], // 5
+                [-1, 1, "Conv", [16, 3, 1, "bn", "relu"]], // 6
+                [-1, 1, "BottleneckCSP", [16, 8, 1, "relu", "relu"]], // 7
+                [-1, 1, "Upsample", [2, "nearest"]], // 8
+                [-1, 1, "Conv", [2, 3, 1, "bn", null]] // 9
+            ],
+            "ll_block_cfg":[
+                [-1, 1, "SE", [192, 2]], // 0
+                [-1, 1, "Conv", [128, 3, 1, "bn", "relu"]], // 1
+                [-1, 1, "TransposeUp", [128, 2, 1, "bn", "relu"]], // 2
+                [-1, 1, "BottleneckCSP", [128, 32, 1, "relu", "relu"]], // 3
+                [-1, 1, "Conv", [64, 1, 1, "bn", "relu"]], // 4
+                [-1, 1, "Conv", [32, 3, 1, "bn", "relu"]], // 5
+                [-1, 1, "TransposeUp", [32, 2, 1, "bn", "relu"]], // 6
+                [-1, 1, "Conv", [16, 3, 1, "bn", "relu"]], // 7
+                [-1, 1, "BottleneckCSP", [16, 8, 1, "relu", "relu"]], // 8
+                [-1, 1, "TransposeUp", [8, 2, 1, "bn", "relu"]], // 9
+                [-1, 1, "Conv", [2, 3, 1, "bn", null]] // 10
+            ]
+        },
+        "loss": {
+            "module_name": "anchor_loss",
+            "num_classes": 2,
+            "multi_head_lambda": null,
+            "fl_gamma": 0.0, // focal loss gamma
+            "cls_pos_weight": 1.0, // classification loss positive weights
+            "obj_pos_weight": 1.0, // object loss positive weights
+            "seg_pos_weight": 1.0, // segmentation loss positive weights
+            "box_gain" : 0.05, // box loss gain
+            "cls_gain": 0.5, // classification loss gain
+            "obj_gain": 1.0, // object loss gain
+            "da_seg_gain": 0.2, // driving area segmentation loss gain
+            "ll_seg_gain": 0.2, // lane line segmentation loss gain
+            "ll_iou_gain": 0.2, // lane line iou loss gain
+            "seg_only": false, // Only train two segmentation branchs
+            "det_only": false, // Only train detection branch
+            "enc_seg_only": false, // Only train encoder and two segmentation branchs
+            "enc_det_only": false, // Only train encoder and detection branch
+            // if training 3 tasks end-to-end, set all parameters as True
+            // Alternating optimization
+            // Single task
+            "drivable_only": false, // Only train da_segmentation task
+            "lane_only": false// Only train ll_segmentation task
+        }
+    }
+}
